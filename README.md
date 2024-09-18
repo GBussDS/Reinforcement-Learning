@@ -1,0 +1,1 @@
+Repository dedicated to practicing the Reinforcement Learning algorithms presented in ["Reinforcement Learning: An Introduction"](https://mega.nz/file/PRYgTQZS#mDQlM1ztv_WYiSQhvBbPI6k2aSaQnq5Jm796H9F9PMk) by Richard S. Sutton and Andrew G. Barto (2018)
