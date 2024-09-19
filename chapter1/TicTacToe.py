@@ -1,6 +1,7 @@
 import random
+import csv
 
-a= 0
+a = 0
 
 class Game():
     def __init__(self, player1, player2):
@@ -13,7 +14,7 @@ class Game():
 
         self.winner = None
         self.every_state = []
-        
+        self.train_run = 0
         self.every_state_setter()
 
     def train(self, train_times):
@@ -26,8 +27,8 @@ class Game():
             self.win_count[result - 1] += 1
 
             #Updates values and resets players historics
-            self.player1.update_values()
-            self.player2.update_values()
+            self.player1.update_values(train_times)
+            self.player2.update_values(train_times)
             self.player1.reset_historic()
             self.player2.reset_historic()
             self.state = [0,0,0,0,0,0,0,0,0]
@@ -35,8 +36,94 @@ class Game():
         #Shows last match and results
         result = self.match(debug=True)
         self.win_count[result - 1] += 1
-        print("Ganhador da final: " + str(result))
-        print("Placar: " + str(self.win_count))
+        print("Finals winner: " + str(result))
+        print("Scoreboard: " + str(self.win_count))
+
+        if result == 1:
+            self.winner = self.player1
+        elif result == 2:
+            self.winner = self.player2
+        else:
+            self.winner = self.player1
+        
+        self.player1.reset_historic()
+        self.player2.reset_historic()
+        self.state = [0,0,0,0,0,0,0,0,0]
+
+        # if self.train_run < 3:
+        #     self.train_run += 1
+        #     self.win_count = [0,0,0]
+        #     self.player1 = Player(1, 0.1, 0.1)
+        #     self.player2.epsolon = 0.1
+        #     self.train(train_times)
+
+    def test(self):
+        print("You will play agains the machine, use the numbered keyboard to play:")
+        
+        self.winner.play_number = 2
+        current_player = 0
+        accepted_inputs = [1,2,3,4,5,6,7,8,9]
+        equivalents = [6,7,8,3,4,5,0,1,2]
+
+        winner = 0
+
+        self.print_state()
+
+        while True:
+            if current_player == 0:
+                entry = None
+                while entry not in accepted_inputs:
+                    entry = int(input("Your turn:"))
+                
+                new_state = self.state.copy()
+                index = accepted_inputs.index(entry)
+                new_state[equivalents[index]] = 1
+                accepted_inputs.remove(entry)
+                del equivalents[index]
+            else:
+                print("Machine's turn:")
+                new_state = self.winner.play(self.state)
+
+                for i in range(len(self.state)):
+                    if self.state[i] != new_state[i]:
+                        numbered_changed = equivalents.index(i)
+        
+                del accepted_inputs[numbered_changed]
+                del equivalents[numbered_changed]
+            
+            self.state = new_state
+
+            self.print_state()
+
+            if current_player == 0:
+                current_player = 1
+            else:
+                current_player = 0
+
+            winner = check_winner(self.state)
+            
+            if winner == 1 or winner == 2 or winner == 3:
+                break
+
+        #Resets players historics
+        self.winner.reset_historic()
+        self.state = [0,0,0,0,0,0,0,0,0]
+
+        #Shows results
+        if winner == 1:
+            print("You won!")
+        elif winner == 2:
+            print("You lost to the machine.")
+        else:
+            print("It was a draw...")
+
+        while True:
+            entry = input("Press s to play again, n to quit.")
+            if entry == "s":
+                self.test()
+                return
+            elif entry == 'n':
+                return
 
 
     def match(self, debug = False):
@@ -71,7 +158,7 @@ class Game():
         else:
             self.current_player = self.player1
     
-    def print_state(self):
+    def print_state(self, end = None):
         state = self.state.copy()
         for i in range(len(state)):
             if state[i] == 1:
@@ -82,11 +169,11 @@ class Game():
                 state[i] = " "
 
         for i in range(3):
-            print(" " + state[0 + 3 * i] + " | " + state[1 + 3 * i] + " | " + state[2 + 3 * i] + " ")
+            print(" " + state[0 + 3 * i] + " | " + state[1 + 3 * i] + " | " + state[2 + 3 * i] + " ", end = end)
             if i != 2:
-                print("-----------")
+                print("-----------", end = end)
         
-        print("###########")
+        print("###########", end = end)
     
     def every_state_setter(self):
         state_number = 0
@@ -126,15 +213,17 @@ class Player():
     def reset_historic(self):
         self.historic = {}
 
-    def update_values(self):
+    def update_values(self, train_size):
         keys = list(self.historic.keys())
 
         #Updates the values backwards
         for i in range(len(keys)-2, -1, -1):
             if self.historic[keys[i]]:
                 self.values[keys[i]] += self.step_size * (self.values[keys[i+1]] - self.values[keys[i]])
-                print(str(keys[i]) + " " + str(self.values[keys[i]]))
+                # print(str(keys[i]) + " " + str(self.values[keys[i]]))
                 a = keys[i]
+        
+        self.epsolon -= 0.1/train_size
     
     def play(self, state):
         #checks the position of empty spaces
@@ -152,15 +241,19 @@ class Player():
         
         #Finds best option
         best_option = options[0]
+        equal_options = 0
         for option in options: 
             if self.values[option] > self.values[best_option]:
                 best_option = option
+            elif self.values[option] == self.values[best_option]:
+                equal_options += 1
         
         if len(options) != 1 and self.values[best_option] != 1:
             #Exploratory move
             chance = random.random()
-            if chance <= self.epsolon or self.values[best_option] == 0:
-                options.remove(best_option)
+            if chance <= self.epsolon:
+                if equal_options != len(options):
+                    options.remove(best_option)
                 best_option = options[random.randint(0,len(options)-1)]
                 
                 self.append_state(best_option, False)
@@ -176,7 +269,7 @@ class Player():
             winner = check_winner(state)
             if winner == 0:
                 self.values[state_number] = 0.5
-            elif winner == self.play_number or winner == 3:
+            elif winner == self.play_number:
                 self.values[state_number] = 1
             else:
                 self.values[state_number] = 0
@@ -220,10 +313,10 @@ def check_winner(state):
                 if state[2 * i] != 0:
                     return state[2 * i]
         
-        #Checks for draws by filled states, draw == -1
-        for number in state:
-            if number == 0:
-                return 0
+    #Checks for draws by filled states, draw == -1
+    for number in state:
+        if number == 0:
+            return 0
 
     return 3
 
@@ -231,5 +324,5 @@ player1 = Player(1,0.1,0.1)
 player2 = Player(2,0.1,0.1)
 game = Game(player1, player2)
 
-game.train(10000)
-print(game.player1.values[a])
+game.train(10000000)
+game.test()
