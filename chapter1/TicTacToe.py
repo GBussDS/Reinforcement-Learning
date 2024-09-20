@@ -27,8 +27,8 @@ class Game():
             self.win_count[result - 1] += 1
 
             #Updates values and resets players historics
-            self.player1.update_values(train_times)
-            self.player2.update_values(train_times)
+            self.player1.update_values(train_times, result, self.state)
+            self.player2.update_values(train_times, result, self.state)
             self.player1.reset_historic()
             self.player2.reset_historic()
             self.state = [0,0,0,0,0,0,0,0,0]
@@ -61,7 +61,7 @@ class Game():
         print("You will play agains the machine, use the numbered keyboard to play:")
         
         self.winner.play_number = 2
-        current_player = 0
+        current_player = random.choice([0,1])
         accepted_inputs = [1,2,3,4,5,6,7,8,9]
         equivalents = [6,7,8,3,4,5,0,1,2]
 
@@ -73,7 +73,10 @@ class Game():
             if current_player == 0:
                 entry = None
                 while entry not in accepted_inputs:
-                    entry = int(input("Your turn:"))
+                    try:
+                        entry = int(input("Your turn:"))
+                    except:
+                        pass
                 
                 new_state = self.state.copy()
                 index = accepted_inputs.index(entry)
@@ -213,15 +216,16 @@ class Player():
     def reset_historic(self):
         self.historic = {}
 
-    def update_values(self, train_size):
+    def update_values(self, train_size, result, final_state):
+        if result != self.play_number:
+            self.append_state(self._list_to_number(final_state),True)
+        
         keys = list(self.historic.keys())
 
         #Updates the values backwards
         for i in range(len(keys)-2, -1, -1):
             if self.historic[keys[i]]:
                 self.values[keys[i]] += self.step_size * (self.values[keys[i+1]] - self.values[keys[i]])
-                # print(str(keys[i]) + " " + str(self.values[keys[i]]))
-                a = keys[i]
         
         self.epsolon -= 0.1/train_size
     
@@ -269,7 +273,7 @@ class Player():
             winner = check_winner(state)
             if winner == 0:
                 self.values[state_number] = 0.5
-            elif winner == self.play_number:
+            elif winner == self.play_number or winner == 3:
                 self.values[state_number] = 1
             else:
                 self.values[state_number] = 0
@@ -324,5 +328,5 @@ player1 = Player(1,0.1,0.1)
 player2 = Player(2,0.1,0.1)
 game = Game(player1, player2)
 
-game.train(10000000)
+game.train(100000)
 game.test()
